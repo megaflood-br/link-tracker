@@ -158,6 +158,7 @@ function renderLinks(links) {
           <button type="button" data-copy="${link.shortUrl}">Copiar</button>
           <button type="button" data-edit="${link.id}">Editar</button>
           <button type="button" data-detail="${link.id}">Detalhes</button>
+          <button type="button" class="danger" data-delete="${link.id}">Excluir</button>
           <a href="${link.shortUrl}" target="_blank" rel="noreferrer">Testar</a>
         </div>
       </article>`,
@@ -175,6 +176,22 @@ function renderLinks(links) {
   });
   list.querySelectorAll("[data-detail]").forEach((btn) => {
     btn.addEventListener("click", () => openDetail(btn.dataset.detail));
+  });
+  list.querySelectorAll("[data-delete]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const link = links.find((item) => String(item.id) === btn.dataset.delete);
+      const ok = window.confirm(
+        `Excluir o atalho /${link?.slug || ""}? Os acessos registrados nele também saem.`,
+      );
+      if (!ok) return;
+      try {
+        await api(`/api/links/${btn.dataset.delete}`, { method: "DELETE" });
+        if (detail.open) detail.close();
+        await loadDashboard();
+      } catch (err) {
+        window.alert(err.message || "Não foi possível excluir.");
+      }
+    });
   });
 }
 

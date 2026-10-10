@@ -262,6 +262,11 @@ button.ghost,
   align-items: center;
 }
 
+.card-actions {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
 .slug {
   font-weight: 600;
 }
@@ -272,6 +277,11 @@ button.ghost,
   font-size: 0.85rem;
   width: auto;
   color: inherit;
+}
+
+.card-actions button.danger {
+  color: var(--danger);
+  border-color: #e8c4c4;
 }
 
 .empty {
