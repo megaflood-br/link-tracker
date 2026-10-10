@@ -1,5 +1,6 @@
 import "dotenv/config";
 import crypto from "node:crypto";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
@@ -372,8 +373,18 @@ routes.get("/", (req, res) => {
   res.redirect(`${req.baseUrl || ""}/admin`);
 });
 
+function renderAdminPage() {
+  const html = fs.readFileSync(path.join(publicDir, "admin.html"), "utf8");
+  const css = fs.readFileSync(path.join(publicDir, "admin.css"), "utf8");
+  const js = fs.readFileSync(path.join(publicDir, "admin.js"), "utf8");
+  return html
+    .replace('<link rel="icon" href="favicon.svg" type="image/svg+xml" />', "")
+    .replace('<link rel="stylesheet" href="admin.css" />', `<style>${css}</style>`)
+    .replace('<script src="admin.js"></script>', `<script>${js}</script>`);
+}
+
 routes.get(["/admin", "/admin/"], (_req, res) => {
-  res.sendFile(path.join(publicDir, "admin.html"));
+  res.type("html").send(renderAdminPage());
 });
 
 routes.use(express.static(publicDir, { index: false }));

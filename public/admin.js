@@ -198,11 +198,16 @@ async function loadDashboard() {
 }
 
 async function boot() {
-  const me = await api("/api/me");
-  publicUrl = me.publicUrl;
-  renderAuth(me.ok);
-  document.getElementById("password-banner").hidden = !me.ok || !me.mustChangePassword;
-  if (me.ok) await loadDashboard();
+  try {
+    const me = await api("/api/me");
+    publicUrl = me.publicUrl;
+    renderAuth(me.ok);
+    document.getElementById("password-banner").hidden = !me.ok || !me.mustChangePassword;
+    if (me.ok) await loadDashboard();
+  } catch (err) {
+    renderAuth(false);
+    showError(loginError, err.message || "Não foi possível conectar ao painel.");
+  }
 }
 
 loginForm.addEventListener("submit", async (event) => {
