@@ -1,6 +1,6 @@
 # Link Tracker
 
-Sistema pequeno, no estilo Bitly, para criar atalhos e medir acessos. No mesmo domínio do site, os links ficam em `/link-tracker`.
+Sistema pequeno, no estilo Bitly, para criar atalhos e medir acessos. Os atalhos públicos ficam na raiz do domínio (`/maps`); o painel fica em `/link-tracker/admin`.
 
 ## Rodar localmente
 
@@ -60,7 +60,7 @@ nano .env
 PORT=3847
 ADMIN_PASSWORD=uma-senha-forte
 SESSION_SECRET=um-texto-longo-e-aleatorio
-PUBLIC_URL=https://renovesuabeleza.com.br/link-tracker
+PUBLIC_URL=https://renovesuabeleza.com.br
 BASE_PATH=/link-tracker
 ```
 
@@ -104,22 +104,31 @@ Em **Web → renovesuabeleza.com.br → Proxy**:
 - **From URL:** `/link-tracker/`
 - **To URL:** `http://127.0.0.1:3847/link-tracker/`
 
-As duas terminam com `/`. Sem isso o site HTML não sabe que `/link-tracker` é o rastreador.
+As duas terminam com `/`. Isso cobre o painel.
 
-Custom config, para ninguém baixar o `.env`:
+No **Custom config** do mesmo domínio, cole isto para os atalhos curtos (`/maps`) e para proteger os arquivos do app:
 
 ```nginx
+location ~ ^/([a-zA-Z0-9][a-zA-Z0-9_-]{0,47})$ {
+  proxy_pass http://127.0.0.1:3847/$1;
+  proxy_set_header Host $host;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+}
+
 location ~ ^/link-tracker/\.env { deny all; return 404; }
 location ^~ /link-tracker/data { deny all; return 404; }
 location ^~ /link-tracker/src { deny all; return 404; }
 location ^~ /link-tracker/node_modules { deny all; return 404; }
 ```
 
+Não use como slug o nome de uma página HTML que já exista na raiz (por exemplo `index`).
+
 ### 6. Botões no site HTML
 
 ```html
-<a href="https://renovesuabeleza.com.br/link-tracker/maps">Como chegar</a>
-<a href="https://renovesuabeleza.com.br/link-tracker/avaliacao">Avaliar no Google</a>
+<a href="https://renovesuabeleza.com.br/maps">Como chegar</a>
+<a href="https://renovesuabeleza.com.br/avaliacao">Avaliar no Google</a>
 ```
 
 Painel: https://renovesuabeleza.com.br/link-tracker/admin

@@ -18,10 +18,7 @@ const BASE_PATH = String(process.env.BASE_PATH || "")
   .trim()
   .replace(/\/+$/, "");
 const BASE = BASE_PATH ? (BASE_PATH.startsWith("/") ? BASE_PATH : `/${BASE_PATH}`) : "";
-const PUBLIC_URL = (process.env.PUBLIC_URL || `http://localhost:${PORT}${BASE}`).replace(
-  /\/$/,
-  "",
-);
+const PUBLIC_URL = (process.env.PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/$/, "");
 const RESERVED = new Set([
   "admin",
   "api",
