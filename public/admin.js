@@ -13,6 +13,7 @@ const BASE = (() => {
 
 let publicUrl = "";
 let editingId = null;
+let authToken = sessionStorage.getItem("lt.token") || "";
 
 function showError(el, message) {
   el.hidden = !message;
@@ -43,16 +44,25 @@ function deviceLabel(device) {
 }
 
 async function api(path, options = {}) {
+  const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+  if (authToken) headers.Authorization = `Bearer ${authToken}`;
   const res = await fetch(`${BASE}${path}`, {
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
     ...options,
+    headers,
+    credentials: "include",
   });
   if (res.status === 401 && path !== "/api/me" && path !== "/api/login") {
+    authToken = "";
+    sessionStorage.removeItem("lt.token");
     renderAuth(false);
     throw new Error("Não autenticado");
   }
   const isJson = (res.headers.get("content-type") || "").includes("json");
   const data = isJson ? await res.json() : null;
+  if (data?.token) {
+    authToken = data.token;
+    sessionStorage.setItem("lt.token", authToken);
+  }
   if (!res.ok) throw new Error(data?.error || "Falha na requisição");
   return data;
 }
@@ -213,20 +223,34 @@ async function boot() {
 loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   showError(loginError, "");
+  const button = loginForm.querySelector("button[type='submit']");
+  button.disabled = true;
+  button.textContent = "Entrando...";
   try {
     await api("/api/login", {
       method: "POST",
       body: JSON.stringify({ password: document.getElementById("password").value }),
     });
     await boot();
+    if (appView.hidden) {
+      showError(loginError, "A senha foi aceita, mas a sessão não ficou salva. Tente de novo.");
+    }
   } catch (err) {
     showError(loginError, err.message);
+  } finally {
+    button.disabled = false;
+    button.textContent = "Entrar";
   }
 });
 
 document.getElementById("logout-btn").addEventListener("click", async () => {
-  await api("/api/logout", { method: "POST" });
-  renderAuth(false);
+  try {
+    await api("/api/logout", { method: "POST" });
+  } finally {
+    authToken = "";
+    sessionStorage.removeItem("lt.token");
+    renderAuth(false);
+  }
 });
 
 document.getElementById("new-link-btn").addEventListener("click", () => openEditor(null));

@@ -47,7 +47,7 @@ app.use(
       httpOnly: true,
       sameSite: "lax",
       path: "/",
-      secure: process.env.NODE_ENV === "production",
+      secure: false,
       maxAge: 7 * 24 * 60 * 60 * 1000,
     },
   }),
@@ -99,8 +99,29 @@ function dayKeys(days) {
   return keys;
 }
 
+const tokens = new Map();
+
+function readToken(req) {
+  const header = String(req.headers.authorization || "");
+  const match = header.match(/^Bearer\s+(\S+)/i);
+  return match?.[1] || "";
+}
+
+function isAuthed(req) {
+  if (req.session?.ok) return true;
+  const token = readToken(req);
+  const expires = tokens.get(token);
+  return Boolean(token && expires && expires > Date.now());
+}
+
+function issueToken() {
+  const token = crypto.randomBytes(24).toString("hex");
+  tokens.set(token, Date.now() + 7 * 24 * 60 * 60 * 1000);
+  return token;
+}
+
 function requireAuth(req, res, next) {
-  if (req.session?.ok) return next();
+  if (isAuthed(req)) return next();
   res.status(401).json({ error: "Não autenticado" });
 }
 
@@ -145,7 +166,7 @@ function tooManyLogins(ip) {
   }
   rec.n += 1;
   loginAttempts.set(ip, rec);
-  return rec.n > 12;
+  return rec.n > 40;
 }
 
 function safeEqual(a, b) {
@@ -166,7 +187,7 @@ routes.get("/api/health", (_req, res) => {
 
 routes.get("/api/me", (req, res) => {
   res.json({
-    ok: Boolean(req.session?.ok),
+    ok: isAuthed(req),
     publicUrl: PUBLIC_URL,
     basePath: BASE,
     mustChangePassword: ADMIN_PASSWORD === "altere-esta-senha",
@@ -176,17 +197,20 @@ routes.get("/api/me", (req, res) => {
 routes.post("/api/login", (req, res) => {
   const ip = clientIp(req) || "unknown";
   if (tooManyLogins(ip)) {
-    return res.status(429).json({ error: "Muitas tentativas. Aguarde alguns minutos." });
+    return res.status(429).json({ error: "Muitas tentativas. Reinicie o serviço ou aguarde alguns minutos." });
   }
   const password = String(req.body?.password || "");
   if (!safeEqual(password, ADMIN_PASSWORD)) {
     return res.status(401).json({ error: "Senha incorreta." });
   }
+  loginAttempts.delete(ip);
   req.session.ok = true;
-  res.json({ ok: true });
+  res.json({ ok: true, token: issueToken() });
 });
 
 routes.post("/api/logout", (req, res) => {
+  const token = readToken(req);
+  if (token) tokens.delete(token);
   req.session.destroy(() => {
     res.json({ ok: true });
   });

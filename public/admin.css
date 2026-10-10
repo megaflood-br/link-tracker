@@ -293,6 +293,7 @@ button.ghost,
 .error {
   color: var(--danger);
   margin: 0.4rem 0 0;
+  font-weight: 600;
 }
 
 dialog {
