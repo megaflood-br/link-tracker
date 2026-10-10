@@ -1,38 +1,125 @@
 # Link Tracker
 
-Sistema pequeno, no estilo Bitly, para criar atalhos e medir acessos. Use no seu site HTML no lugar dos links diretos de Google Maps, avaliação, WhatsApp etc.
-
-## Como funciona
-
-1. Você cria um atalho no painel, por exemplo `maps` apontando para o Google Maps.
-2. No site, o botão passa a abrir `http://seu-dominio/maps`.
-3. O sistema registra o clique e redireciona a pessoa ao destino.
+Sistema pequeno, no estilo Bitly, para criar atalhos e medir acessos. No mesmo domínio do site, os links ficam em `/link-tracker`.
 
 ## Rodar localmente
 
 ```bash
 copy .env.example .env
+```
+
+No `.env` local, deixe `BASE_PATH` vazio e `PUBLIC_URL=http://localhost:3847`. Depois:
+
+```bash
 npm install
 npm start
 ```
 
-Abra [http://localhost:3847/admin](http://localhost:3847/admin). A senha inicial é a de `ADMIN_PASSWORD` no `.env`.
+Abra [http://localhost:3847/admin](http://localhost:3847/admin).
 
-## Encaixar no site HTML
+## Instalar no TinyCP (mesmo domínio, sem subdomínio)
 
-Troque o `href` dos botões pelos links curtos:
+Os arquivos do rastreador ficam em `/var/www/renovesuabeleza.com.br/link-tracker`. O site HTML continua na raiz. O TinyCP só encaminha `/link-tracker/` para o Node.
 
-```html
-<a href="http://localhost:3847/maps">Como chegar</a>
-<a href="http://localhost:3847/avaliacao">Avaliar no Google</a>
-<a href="http://localhost:3847/whatsapp">Falar no WhatsApp</a>
+### 1. SSH no servidor
+
+```bash
+cd /var/www/renovesuabeleza.com.br
+git clone https://github.com/megaflood-br/link-tracker.git link-tracker
+cd link-tracker
 ```
 
-Quando o rastreador estiver online, use o domínio público no lugar de `localhost`.
+Se a pasta já existir:
 
-## Produção
+```bash
+cd /var/www/renovesuabeleza.com.br/link-tracker
+git pull
+```
 
-1. Altere `ADMIN_PASSWORD`, `SESSION_SECRET` e `PUBLIC_URL` no `.env`.
-2. Hospede este projeto em qualquer serviço com Node 22+ (VPS, Railway, Render).
-3. Aponte um subdomínio, por exemplo `l.seusite.com`, para este app.
-4. No site HTML, use `https://l.seusite.com/maps`.
+### 2. Node 22
+
+```bash
+node -v
+```
+
+Se não for v22+:
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+apt-get install -y nodejs
+```
+
+### 3. Arquivo `.env`
+
+```bash
+cp .env.example .env
+nano .env
+```
+
+```env
+PORT=3847
+ADMIN_PASSWORD=uma-senha-forte
+SESSION_SECRET=um-texto-longo-e-aleatorio
+PUBLIC_URL=https://renovesuabeleza.com.br/link-tracker
+BASE_PATH=/link-tracker
+```
+
+```bash
+chmod 600 .env
+npm install --omit=dev
+chown -R www-data:www-data /var/www/renovesuabeleza.com.br/link-tracker
+```
+
+### 4. Serviço systemd
+
+`/etc/systemd/system/link-tracker.service`:
+
+```ini
+[Unit]
+Description=Link Tracker
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/renovesuabeleza.com.br/link-tracker
+ExecStart=/usr/bin/node src/server.js
+Restart=always
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+systemctl daemon-reload
+systemctl enable --now link-tracker
+systemctl status link-tracker
+```
+
+### 5. Proxy no TinyCP (domínio principal)
+
+Em **Web → renovesuabeleza.com.br → Proxy**:
+
+- **From URL:** `/link-tracker/`
+- **To URL:** `http://127.0.0.1:3847/link-tracker/`
+
+As duas terminam com `/`. Sem isso o site HTML não sabe que `/link-tracker` é o rastreador.
+
+Custom config, para ninguém baixar o `.env`:
+
+```nginx
+location ~ ^/link-tracker/\.env { deny all; return 404; }
+location ^~ /link-tracker/data { deny all; return 404; }
+location ^~ /link-tracker/src { deny all; return 404; }
+location ^~ /link-tracker/node_modules { deny all; return 404; }
+```
+
+### 6. Botões no site HTML
+
+```html
+<a href="https://renovesuabeleza.com.br/link-tracker/maps">Como chegar</a>
+<a href="https://renovesuabeleza.com.br/link-tracker/avaliacao">Avaliar no Google</a>
+```
+
+Painel: https://renovesuabeleza.com.br/link-tracker/admin

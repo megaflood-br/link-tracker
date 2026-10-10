@@ -13,7 +13,14 @@ const db = initDb(path.join(rootDir, "data", "links.db"));
 
 const PORT = Number(process.env.PORT || 3847);
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "altere-esta-senha";
-const PUBLIC_URL = (process.env.PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/$/, "");
+const BASE_PATH = String(process.env.BASE_PATH || "")
+  .trim()
+  .replace(/\/+$/, "");
+const BASE = BASE_PATH ? (BASE_PATH.startsWith("/") ? BASE_PATH : `/${BASE_PATH}`) : "";
+const PUBLIC_URL = (process.env.PUBLIC_URL || `http://localhost:${PORT}${BASE}`).replace(
+  /\/$/,
+  "",
+);
 const RESERVED = new Set([
   "admin",
   "api",
@@ -22,6 +29,7 @@ const RESERVED = new Set([
   "assets",
   "favicon.ico",
   "robots.txt",
+  "link-tracker",
 ]);
 
 const app = express();
@@ -37,6 +45,8 @@ app.use(
     cookie: {
       httpOnly: true,
       sameSite: "lax",
+      path: "/",
+      secure: process.env.NODE_ENV === "production",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     },
   }),
@@ -147,19 +157,22 @@ function safeEqual(a, b) {
   return crypto.timingSafeEqual(left, right);
 }
 
-app.get("/api/health", (_req, res) => {
+const routes = express.Router();
+
+routes.get("/api/health", (_req, res) => {
   res.json({ ok: true });
 });
 
-app.get("/api/me", (req, res) => {
+routes.get("/api/me", (req, res) => {
   res.json({
     ok: Boolean(req.session?.ok),
     publicUrl: PUBLIC_URL,
+    basePath: BASE,
     mustChangePassword: ADMIN_PASSWORD === "altere-esta-senha",
   });
 });
 
-app.post("/api/login", (req, res) => {
+routes.post("/api/login", (req, res) => {
   const ip = clientIp(req) || "unknown";
   if (tooManyLogins(ip)) {
     return res.status(429).json({ error: "Muitas tentativas. Aguarde alguns minutos." });
@@ -172,13 +185,13 @@ app.post("/api/login", (req, res) => {
   res.json({ ok: true });
 });
 
-app.post("/api/logout", (req, res) => {
+routes.post("/api/logout", (req, res) => {
   req.session.destroy(() => {
     res.json({ ok: true });
   });
 });
 
-app.get("/api/links", requireAuth, (_req, res) => {
+routes.get("/api/links", requireAuth, (_req, res) => {
   const links = db.prepare("SELECT * FROM links ORDER BY created_at DESC").all().map(linkRow);
   const counts = db
     .prepare("SELECT link_id, COUNT(*) AS total FROM clicks GROUP BY link_id")
@@ -200,7 +213,7 @@ app.get("/api/links", requireAuth, (_req, res) => {
   );
 });
 
-app.post("/api/links", requireAuth, (req, res) => {
+routes.post("/api/links", requireAuth, (req, res) => {
   const slug = normalizeSlug(req.body?.slug);
   const title = String(req.body?.title || "").trim();
   const url = String(req.body?.url || "").trim();
@@ -228,7 +241,7 @@ app.post("/api/links", requireAuth, (req, res) => {
   }
 });
 
-app.put("/api/links/:id", requireAuth, (req, res) => {
+routes.put("/api/links/:id", requireAuth, (req, res) => {
   const id = Number(req.params.id);
   const current = db.prepare("SELECT * FROM links WHERE id = ?").get(id);
   if (!current) return res.status(404).json({ error: "Link não encontrado." });
@@ -261,7 +274,7 @@ app.put("/api/links/:id", requireAuth, (req, res) => {
   }
 });
 
-app.delete("/api/links/:id", requireAuth, (req, res) => {
+routes.delete("/api/links/:id", requireAuth, (req, res) => {
   const id = Number(req.params.id);
   db.prepare("DELETE FROM clicks WHERE link_id = ?").run(id);
   const info = db.prepare("DELETE FROM links WHERE id = ?").run(id);
@@ -269,7 +282,7 @@ app.delete("/api/links/:id", requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
-app.get("/api/stats", requireAuth, (_req, res) => {
+routes.get("/api/stats", requireAuth, (_req, res) => {
   const keys = dayKeys(14);
   const since = new Date();
   since.setDate(since.getDate() - 14);
@@ -314,7 +327,7 @@ app.get("/api/stats", requireAuth, (_req, res) => {
   });
 });
 
-app.get("/api/stats/:id", requireAuth, (req, res) => {
+routes.get("/api/stats/:id", requireAuth, (req, res) => {
   const id = Number(req.params.id);
   const link = db.prepare("SELECT * FROM links WHERE id = ?").get(id);
   if (!link) return res.status(404).json({ error: "Link não encontrado." });
@@ -333,7 +346,7 @@ app.get("/api/stats/:id", requireAuth, (req, res) => {
   res.json({ link: linkRow(link), clicks, total: clicks.length });
 });
 
-app.get("/api/export/:id.csv", requireAuth, (req, res) => {
+routes.get("/api/export/:id.csv", requireAuth, (req, res) => {
   const id = Number(req.params.id);
   const link = db.prepare("SELECT * FROM links WHERE id = ?").get(id);
   if (!link) return res.status(404).send("not found");
@@ -355,17 +368,17 @@ app.get("/api/export/:id.csv", requireAuth, (req, res) => {
   res.send(`${header}\n${body}\n`);
 });
 
-app.get("/", (_req, res) => {
-  res.redirect("/admin");
+routes.get("/", (req, res) => {
+  res.redirect(`${req.baseUrl || ""}/admin`);
 });
 
-app.get("/admin", (_req, res) => {
+routes.get(["/admin", "/admin/"], (_req, res) => {
   res.sendFile(path.join(publicDir, "admin.html"));
 });
 
-app.use(express.static(publicDir, { index: false }));
+routes.use(express.static(publicDir, { index: false }));
 
-app.get("/:slug", (req, res, next) => {
+routes.get("/:slug", (req, res, next) => {
   const slug = normalizeSlug(req.params.slug);
   if (!isValidSlug(slug)) return next();
 
@@ -389,6 +402,12 @@ app.get("/:slug", (req, res, next) => {
 
   res.redirect(302, link.url);
 });
+
+app.use("/", routes);
+app.use("/link-tracker", routes);
+if (BASE && BASE !== "/link-tracker") {
+  app.use(BASE, routes);
+}
 
 app.use((_req, res) => {
   res.status(404).sendFile(path.join(publicDir, "404.html"));

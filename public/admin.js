@@ -6,6 +6,11 @@ const editor = document.getElementById("editor");
 const editorForm = document.getElementById("editor-form");
 const detail = document.getElementById("detail");
 
+const BASE = (() => {
+  const path = window.location.pathname.replace(/\/+$/, "");
+  return path.endsWith("/admin") ? path.slice(0, -"/admin".length) : "";
+})();
+
 let publicUrl = "";
 let editingId = null;
 
@@ -38,7 +43,7 @@ function deviceLabel(device) {
 }
 
 async function api(path, options = {}) {
-  const res = await fetch(path, {
+  const res = await fetch(`${BASE}${path}`, {
     headers: { "Content-Type": "application/json", ...(options.headers || {}) },
     ...options,
   });
@@ -170,7 +175,7 @@ async function openDetail(id) {
   document.getElementById("detail-url").textContent = data.link.shortUrl;
   document.getElementById("detail-qr").href =
     `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(data.link.shortUrl)}`;
-  document.getElementById("detail-csv").href = `/api/export/${id}.csv`;
+  document.getElementById("detail-csv").href = `${BASE}/api/export/${id}.csv`;
   const box = document.getElementById("detail-clicks");
   box.innerHTML = data.clicks.length
     ? data.clicks
