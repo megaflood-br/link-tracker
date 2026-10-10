@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Link Tracker</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/admin.css" />
+  </head>
+  <body>
+    <div id="login-view" class="login-wrap" hidden>
+      <form id="login-form" class="login-card" autocomplete="on">
+        <p class="eyebrow">Link Tracker</p>
+        <h1>Acompanhe cada clique</h1>
+        <p class="lede">
+          Entre para criar atalhos de Maps, avaliação e o que mais quiser medir.
+        </p>
+        <label>
+          Senha do painel
+          <input id="password" name="password" type="password" required autofocus />
+        </label>
+        <p id="login-error" class="error" hidden></p>
+        <button type="submit">Entrar</button>
+      </form>
+    </div>
+
+    <div id="app-view" hidden>
+      <header class="top">
+        <div>
+          <p class="eyebrow">Link Tracker</p>
+          <h1>Painel de acessos</h1>
+        </div>
+        <div class="top-actions">
+          <button type="button" class="ghost" id="logout-btn">Sair</button>
+          <button type="button" class="primary" id="new-link-btn">Novo link</button>
+        </div>
+      </header>
+
+      <p id="password-banner" class="banner" hidden>
+        Troque a senha padrão no arquivo <code>.env</code> (<code>ADMIN_PASSWORD</code>) antes de
+        usar em produção.
+      </p>
+
+      <section class="stats" id="stats-cards"></section>
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Últimos 14 dias</h2>
+          <p id="device-line" class="muted"></p>
+        </div>
+        <div id="chart" class="chart"></div>
+      </section>
+
+      <section class="split">
+        <div class="panel grow">
+          <div class="panel-head">
+            <h2>Seus links</h2>
+            <p class="muted">Use estes endereços no seu site HTML no lugar do destino final.</p>
+          </div>
+          <div id="links-empty" class="empty" hidden>
+            <h3>Nenhum link ainda</h3>
+            <p>Crie atalhos como <strong>maps</strong>, <strong>avaliacao</strong> ou <strong>whatsapp</strong>.</p>
+          </div>
+          <div id="links-list" class="links"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Acessos recentes</h2>
+          </div>
+          <div id="recent" class="recent"></div>
+        </div>
+      </section>
+    </div>
+
+    <dialog id="editor">
+      <form id="editor-form">
+        <p class="eyebrow" id="editor-kicker">Novo link</p>
+        <h2 id="editor-title">Para onde este atalho leva?</h2>
+        <label>
+          Título
+          <input id="field-title" name="title" placeholder="Google Maps" required />
+        </label>
+        <label>
+          Slug (parte curta da URL)
+          <input id="field-slug" name="slug" placeholder="maps" required />
+        </label>
+        <p class="preview" id="slug-preview"></p>
+        <label>
+          URL de destino
+          <input
+            id="field-url"
+            name="url"
+            type="url"
+            placeholder="https://maps.google.com/?q=..."
+            required
+          />
+        </label>
+        <label class="check">
+          <input id="field-active" type="checkbox" checked />
+          Link ativo
+        </label>
+        <p id="editor-error" class="error" hidden></p>
+        <div class="dialog-actions">
+          <button type="button" class="ghost" id="cancel-edit" value="cancel">Cancelar</button>
+          <button type="submit" class="primary" id="save-link">Salvar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="detail">
+      <div class="detail-head">
+        <div>
+          <p class="eyebrow" id="detail-slug"></p>
+          <h2 id="detail-title"></h2>
+        </div>
+        <button type="button" class="ghost" id="close-detail">Fechar</button>
+      </div>
+      <p class="preview" id="detail-url"></p>
+      <div class="detail-actions">
+        <a id="detail-qr" href="#" target="_blank" rel="noreferrer">QR code</a>
+        <a id="detail-csv" href="#">Exportar CSV</a>
+      </div>
+      <div id="detail-clicks" class="recent"></div>
+    </dialog>
+
+    <script src="/admin.js"></script>
+  </body>
+</html>
